@@ -1,8 +1,10 @@
 @page "/"
 @using AnalyzeThis.Models
 @using AnalyzeThis.Services
+@using System.Text.Json
 @inject TrafficService TrafficService
 @inject SettingsService SettingsService
+@inject IHttpClientFactory HttpClientFactory
 @implements IDisposable
 @rendermode InteractiveServer
 
@@ -21,21 +23,33 @@
              <div style="display: flex; gap: 1rem; align-items: center;">
                  <div style="flex: 1;">
                      <label style="font-size: 0.7rem; color: #555;">TEMP: @SettingsService.Current.Temperature.ToString("F1")</label>
-                     <input type="range" min="0" max="1" step="0.1" @bind="SettingsService.Current.Temperature" style="width: 100%; height: 4px; accent-color: #6e7aff;" />
+                     <input type="range" min="0" max="1" step="0.1" @bind="SettingsService.Current.Temperature" @bind:after="SettingsService.SaveRegistry" style="width: 100%; height: 4px; accent-color: #6e7aff;" />
                  </div>
                  <div style="flex: 1;">
                      <label style="font-size: 0.7rem; color: #555;">TOP-K: @SettingsService.Current.TopK</label>
-                     <input type="number" @bind="SettingsService.Current.TopK" style="width: 100%; background: transparent; border: 1px solid var(--glass-border); color: #fff; font-size: 0.8rem; border-radius: 4px; padding: 2px 4px;" />
+                     <input type="number" @bind="SettingsService.Current.TopK" @bind:after="SettingsService.SaveRegistry" style="width: 100%; background: transparent; border: 1px solid var(--glass-border); color: #fff; font-size: 0.8rem; border-radius: 4px; padding: 2px 4px;" />
                  </div>
                  <div style="flex: 0.5; text-align: center;">
                      <label style="font-size: 0.7rem; color: #555;">JSON</label><br/>
-                     <input type="checkbox" @bind="SettingsService.Current.EnableJsonMode" />
+                     <input type="checkbox" @bind="SettingsService.Current.EnableJsonMode" @bind:after="SettingsService.SaveRegistry" />
                  </div>
+             </div>
+             
+             <!-- Model Selector -->
+             <div style="margin-top: 1rem; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+                 <label style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Primary Model (Global)</label>
+                 <select @bind="SettingsService.SelectedModelId" @bind:after="SettingsService.SaveRegistry" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--neon-blue); color: #fff; border-radius: 8px; padding: 6px; margin-top: 4px; font-size: 0.9rem;">
+                     @foreach(var model in SettingsService.ModelRegistry.OrderBy(m => m.DisplayName))
+                     {
+                         <option value="@model.Id">@model.DisplayName (@model.Provider)</option>
+                     }
+                 </select>
              </div>
         </div>
     </header>
 
     <div class="stats-grid">
+        <!-- Dashboard Stats -->
         <div class="glass-card">
             <h3 style="color: #888; font-size: 0.8rem; text-transform: uppercase;">Total Traffic</h3>
             <div class="stat-value">@TrafficService.TotalRequests</div>
@@ -50,7 +64,102 @@
         </div>
     </div>
 
-    <div class="glass-card" style="margin-top: 2rem;">
+    <!-- Model Registry Panel -->
+    <div class="glass-card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3 style="font-weight: 700; margin: 0;">AI Model Command Center</h3>
+            <div style="display: flex; gap: 0.5rem;">
+                <button @onclick="() => ShowAddForm = !ShowAddForm" style="background: var(--neon-blue); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;">➕ Connect Enterprise AI</button>
+                <button @onclick="RefreshModels" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;">🔄 Refresh Local</button>
+            </div>
+        </div>
+
+        @if (ShowAddForm)
+        {
+            <div style="background: rgba(0,0,0,0.3); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--neon-blue); margin-bottom: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+                 <div>
+                     <label style="font-size: 0.7rem; color: #888;">DISPLAY NAME</label>
+                     <input @bind="NewModel.DisplayName" placeholder="e.g. Gemini 1.5 Pro" style="width: 100%; background: transparent; border: 1px solid #444; color: #fff; padding: 6px; border-radius: 4px;" />
+                 </div>
+                 <div>
+                     <label style="font-size: 0.7rem; color: #888;">PROVIDER</label>
+                     <select @bind="NewModel.Provider" style="width: 100%; background: #222; border: 1px solid #444; color: #fff; padding: 6px; border-radius: 4px;">
+                         @foreach (var provider in Enum.GetValues<AiProvider>()) { <option value="@provider">@provider</option> }
+                     </select>
+                 </div>
+                 <div>
+                     <label style="font-size: 0.7rem; color: #888;">MODEL ID (INTERNAL)</label>
+                     @if (DiscoveredModels.Any())
+                     {
+                         <select value="@NewModel.ModelName" @onchange="OnDiscoveredModelSelected" style="width: 100%; background: #222; border: 1px solid var(--neon-blue); color: #fff; padding: 6px; border-radius: 4px;">
+                             <option value="">-- Select Discovered Model --</option>
+                             @foreach (var m in DiscoveredModels.OrderBy(m => m.DisplayName))
+                             {
+                                 <option value="@m.ModelName">@m.DisplayName (@m.ModelName)</option>
+                             }
+                         </select>
+                     }
+                     else
+                     {
+                         <input @bind="NewModel.ModelName" placeholder="e.g. gemini-1.5-pro" style="width: 100%; background: transparent; border: 1px solid #444; color: #fff; padding: 6px; border-radius: 4px;" />
+                     }
+                 </div>
+                 <div>
+                     <label style="font-size: 0.7rem; color: #888;">BASE URL (OPENAI-COMPATIBLE)</label>
+                     <div style="display: flex; gap: 0.5rem;">
+                        <input @bind="NewModel.BaseUrl" placeholder="https://..." style="flex: 1; background: transparent; border: 1px solid #444; color: #fff; padding: 6px; border-radius: 4px;" />
+                        <button @onclick="DiscoverModels" disabled="@IsDiscovering" style="background: var(--neon-blue); border: none; padding: 6px 12px; border-radius: 4px; color: white; font-size: 0.75rem; cursor: pointer;">
+                            @(IsDiscovering ? "..." : "🔍 DISCOVER")
+                        </button>
+                     </div>
+                     @if (!string.IsNullOrEmpty(DiscoveryStatus))
+                     {
+                         <div style="font-size: 0.7rem; margin-top: 4px; color: @(DiscoveryStatus.StartsWith("Error") || DiscoveryStatus.StartsWith("API") ? "#ff4d4d" : "var(--neon-blue)"); animation: fadeIn 0.3s;">
+                             @DiscoveryStatus
+                         </div>
+                     }
+                 </div>
+                 <div>
+                     <label style="font-size: 0.7rem; color: #888;">SACRED API KEY</label>
+                     <input @bind="NewModel.ApiKey" type="password" placeholder="sk-..." style="width: 100%; background: transparent; border: 1px solid #444; color: #fff; padding: 6px; border-radius: 4px;" />
+                 </div>
+                 <div style="display: flex; gap: 0.5rem;">
+                     <button @onclick="AddEnterpriseModel" style="flex: 1; background: var(--neon-green); color: #000; font-weight: 700; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">SAVE</button>
+                     <button @onclick="() => ShowAddForm = false" style="background: #444; color: #fff; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">CANCEL</button>
+                 </div>
+            </div>
+        }
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                    <tr style="text-align: left; color: #888; border-bottom: 1px solid var(--glass-border);">
+                        <th style="padding: 10px;">Name</th>
+                        <th style="padding: 10px;">Provider</th>
+                        <th style="padding: 10px;">Model ID</th>
+                        <th style="padding: 10px;">Endpoint</th>
+                        <th style="padding: 10px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var model in SettingsService.ModelRegistry.OrderBy(m => m.DisplayName))
+                    {
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" class="model-row">
+                            <td style="padding: 10px; font-weight: 600;">@model.DisplayName</td>
+                            <td style="padding: 10px;"><span class="badge badge-neutral">@model.Provider</span></td>
+                            <td style="padding: 10px; font-family: monospace;">@model.ModelName</td>
+                            <td style="padding: 10px; color: #666; font-family: monospace; font-size: 0.75rem;">@model.BaseUrl</td>
+                            <td style="padding: 10px; color: @(model.IsLocal ? "var(--neon-green)" : "var(--neon-blue)");">
+                                ● @(model.IsLocal ? "Local Sync" : "Cloud Remote")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="glass-card">
         <h3 style="margin-bottom: 1.5rem; font-weight: 700;">Live Traffic Monitor</h3>
         <div class="traffic-feed">
              @foreach (var entry in TrafficService.Entries)
@@ -96,15 +205,130 @@
 
 @code {
     private List<string> ExpandedEntries { get; set; } = new();
+    private bool ShowAddForm { get; set; } = false;
+    private bool IsDiscovering { get; set; } = false;
+    private string DiscoveryStatus { get; set; } = "";
+    private List<AiModel> DiscoveredModels { get; set; } = new();
+    private AiModel NewModel { get; set; } = new() { Provider = AiProvider.Gemini, BaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/" };
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         TrafficService.OnTrafficReceived += HandleTrafficUpdate;
+        
+        // Auto-Discovery on startup
+        if (!SettingsService.ModelRegistry.Any())
+        {
+            await SettingsService.RefreshLocalModelsAsync();
+        }
     }
 
     private void HandleTrafficUpdate()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshModels()
+    {
+        await SettingsService.RefreshLocalModelsAsync();
+        StateHasChanged();
+    }
+
+    private async Task DiscoverModels()
+    {
+        if (string.IsNullOrWhiteSpace(NewModel.ApiKey)) 
+        {
+            DiscoveryStatus = "Error: API Key is required.";
+            return;
+        }
+        
+        IsDiscovering = true;
+        DiscoveryStatus = "Checking remote models...";
+        DiscoveredModels.Clear();
+        try
+        {
+            var client = HttpClientFactory.CreateClient();
+            // Most APIs require a User-Agent header
+            client.DefaultRequestHeaders.Add("User-Agent", "AnalyzeThis-Intelligence-Gateway/1.0");
+
+            string url = NewModel.Provider == AiProvider.Gemini 
+                ? $"https://generativelanguage.googleapis.com/v1beta/models?key={NewModel.ApiKey}"
+                : NewModel.BaseUrl.TrimEnd('/') + "/models";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (NewModel.Provider != AiProvider.Gemini)
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", NewModel.ApiKey);
+
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(content);
+                
+                int count = 0;
+                if (NewModel.Provider == AiProvider.Gemini && doc.RootElement.TryGetProperty("models", out var gModels))
+                {
+                    foreach (var m in gModels.EnumerateArray())
+                    {
+                        var name = m.GetProperty("name").GetString() ?? "";
+                        var disp = m.TryGetProperty("displayName", out var d) ? d.GetString() : name;
+                        DiscoveredModels.Add(new AiModel { ModelName = name, DisplayName = disp ?? name });
+                        count++;
+                    }
+                }
+                else if (doc.RootElement.TryGetProperty("data", out var oModels))
+                {
+                    foreach (var m in oModels.EnumerateArray())
+                    {
+                        var id = m.GetProperty("id").GetString() ?? "";
+                        DiscoveredModels.Add(new AiModel { ModelName = id, DisplayName = id });
+                        count++;
+                    }
+                }
+                
+                DiscoveryStatus = count > 0 ? $"Success! Found {count} models." : "Warning: No models found at this endpoint.";
+                if (count > 0) SettingsService.SaveRegistry();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                DiscoveryStatus = $"API Error ({response.StatusCode}): {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+             DiscoveryStatus = $"System Error: {ex.Message}";
+        }
+        finally
+        {
+            IsDiscovering = false;
+            StateHasChanged();
+        }
+    }
+
+    private void AddEnterpriseModel()
+    {
+        if (string.IsNullOrWhiteSpace(NewModel.DisplayName) || string.IsNullOrWhiteSpace(NewModel.ModelName)) return;
+        
+        SettingsService.ModelRegistry.Add(NewModel);
+        SettingsService.SaveRegistry();
+        
+        NewModel = new() { Provider = AiProvider.Gemini, BaseUrl = "https://generativelanguage.googleapis.com/v1beta/openai/" }; // Reset
+        DiscoveredModels.Clear();
+        ShowAddForm = false;
+        StateHasChanged();
+    }
+
+    private void OnDiscoveredModelSelected(ChangeEventArgs e)
+    {
+        var modelName = e.Value?.ToString();
+        if (string.IsNullOrEmpty(modelName)) return;
+        
+        var model = DiscoveredModels.FirstOrDefault(m => m.ModelName == modelName);
+        if (model != null)
+        {
+            NewModel.ModelName = model.ModelName;
+            NewModel.DisplayName = model.DisplayName;
+        }
     }
 
     private void ToggleExpand(string id)

@@ -44,4 +44,21 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+// --- STARTUP AUTO-DISCOVERY ---
+// "Do the thing" (reconnaissance) immediately on boot
+using (var scope = app.Services.CreateScope())
+{
+    var settings = scope.ServiceProvider.GetRequiredService<AnalyzeThis.Services.SettingsService>();
+    try 
+    {
+         // We fire this and forget or wait (Wait is fine for local tool startup)
+         await settings.RefreshLocalModelsAsync();
+         Console.WriteLine(">>> Analysis Gateway: Local Reconnaissance Complete.");
+    } 
+    catch(Exception ex) 
+    {
+         Console.WriteLine($">>> Analysis Gateway: Reconnaissance Failed! {ex.Message}");
+    }
+}
+
 app.Run();

@@ -482,3 +482,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# AI Gateway Persistence
+ai_registry.json
+build_output.txt

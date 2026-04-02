@@ -1,0 +1,17 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\Middleware\ProxyMiddleware.cs(74,73): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\AnalyzeThis.csproj]
+C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\Middleware\ProxyMiddleware.cs(75,60): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\AnalyzeThis.csproj]
+C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\Components\Pages\Dashboard.razor(56,52): error CS1061: 'TrafficService' does not contain a definition for 'GetEntries' and no accessible extension method 'GetEntries' accepting a first argument of type 'TrafficService' could be found (are you missing a using directive or an assembly reference?) [C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\AnalyzeThis.csproj]
+
+Build FAILED.
+
+C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\Middleware\ProxyMiddleware.cs(74,73): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\AnalyzeThis.csproj]
+C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\Middleware\ProxyMiddleware.cs(75,60): warning CS8602: Dereference of a possibly null reference. [C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\AnalyzeThis.csproj]
+C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\Components\Pages\Dashboard.razor(56,52): error CS1061: 'TrafficService' does not contain a definition for 'GetEntries' and no accessible extension method 'GetEntries' accepting a first argument of type 'TrafficService' could be found (are you missing a using directive or an assembly reference?) [C:\Users\bartt\.gemini\antigravity\scratch\AnalyzeThis\AnalyzeThis\AnalyzeThis.csproj]
+    2 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.11
+
+Workload updates are available. Run `dotnet workload list` for more information.

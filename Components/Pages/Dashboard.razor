@@ -1,0 +1,127 @@
+@page "/"
+@using AnalyzeThis.Models
+@using AnalyzeThis.Services
+@inject TrafficService TrafficService
+@inject SettingsService SettingsService
+@implements IDisposable
+@rendermode InteractiveServer
+
+<PageTitle>AnalyzeThis | AI Monitor</PageTitle>
+
+<link rel="stylesheet" href="css/dashboard.css" />
+
+<div class="dashboard-container">
+    <header style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <h1 style="font-weight: 900; letter-spacing: -2px; font-size: 3rem; margin: 0; background: linear-gradient(to right, #6e7aff, #9d50bb); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">ANALYZETHIS</h1>
+            <p style="color: #666; margin: 0; font-weight: 500;">Real-time AI Traffic Control & Monitoring</p>
+        </div>
+        <div class="glass-card" style="padding: 1rem; width: 400px; margin-bottom: 0;">
+             <h4 style="color: #888; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 1rem;">Global AI Policy (Defaults)</h4>
+             <div style="display: flex; gap: 1rem; align-items: center;">
+                 <div style="flex: 1;">
+                     <label style="font-size: 0.7rem; color: #555;">TEMP: @SettingsService.Current.Temperature.ToString("F1")</label>
+                     <input type="range" min="0" max="1" step="0.1" @bind="SettingsService.Current.Temperature" style="width: 100%; height: 4px; accent-color: #6e7aff;" />
+                 </div>
+                 <div style="flex: 1;">
+                     <label style="font-size: 0.7rem; color: #555;">TOP-K: @SettingsService.Current.TopK</label>
+                     <input type="number" @bind="SettingsService.Current.TopK" style="width: 100%; background: transparent; border: 1px solid var(--glass-border); color: #fff; font-size: 0.8rem; border-radius: 4px; padding: 2px 4px;" />
+                 </div>
+                 <div style="flex: 0.5; text-align: center;">
+                     <label style="font-size: 0.7rem; color: #555;">JSON</label><br/>
+                     <input type="checkbox" @bind="SettingsService.Current.EnableJsonMode" />
+                 </div>
+             </div>
+        </div>
+    </header>
+
+    <div class="stats-grid">
+        <div class="glass-card">
+            <h3 style="color: #888; font-size: 0.8rem; text-transform: uppercase;">Total Traffic</h3>
+            <div class="stat-value">@TrafficService.TotalRequests</div>
+        </div>
+        <div class="glass-card">
+            <h3 style="color: #888; font-size: 0.8rem; text-transform: uppercase;">Avg Latency</h3>
+            <div class="stat-value">@(TrafficService.AverageLatency / 1000.0)s</div>
+        </div>
+        <div class="glass-card">
+            <h3 style="color: #888; font-size: 0.8rem; text-transform: uppercase;">Success Rate</h3>
+            <div class="stat-value">@TrafficService.SuccessRate%</div>
+        </div>
+    </div>
+
+    <div class="glass-card" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1.5rem; font-weight: 700;">Live Traffic Monitor</h3>
+        <div class="traffic-feed">
+             @foreach (var entry in TrafficService.Entries)
+             {
+                 var isExpanded = ExpandedEntries.Contains(entry.Id);
+                 <div class="traffic-item-container" style="border-bottom: 1px solid var(--glass-border); padding: 1rem 0;">
+                     <div class="traffic-item" @onclick="() => ToggleExpand(entry.Id)" style="cursor: pointer;">
+                         <div class="badge @(entry.StatusCode == 200 ? "badge-friend" : "badge-foe")">@entry.Method</div>
+                         <div style="font-size: 0.8rem; color: #888;">@entry.Timestamp.ToLocalTime().ToString("HH:mm:ss")</div>
+                         <div style="font-weight: 600;">@entry.Model</div>
+                         
+                         <div style="font-size: 0.75rem; color: var(--neon-blue);">
+                             T: @(entry.Temperature?.ToString("F1") ?? "N/A") | K: @(entry.TopK?.ToString() ?? "N/A")
+                             @(entry.JsonMode == true ? " | JSON" : "")
+                         </div>
+
+                         <div style="text-align: right; font-family: 'Fira Code', monospace; color: var(--neon-green);">
+                             @entry.LatencySeconds.ToString("F1")s
+                         </div>
+                         <div style="text-align: right;">
+                             <span class="badge @(GetThreatBadgeClass(entry.ThreatLevel))">@(entry.ThreatLevel ?? "ANALYZING")</span>
+                         </div>
+                     </div>
+
+                     @if (isExpanded)
+                     {
+                         <div class="expanded-detail" style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 8px; font-size: 0.85rem; border-left: 3px solid var(--neon-blue);">
+                             <div style="margin-bottom: 1rem;">
+                                 <strong style="color: var(--neon-blue); text-transform: uppercase; font-size: 0.7rem;">Prompt:</strong>
+                                 <p style="margin-top: 0.5rem; color: #fff;">@entry.PromptText</p>
+                             </div>
+                             <div>
+                                 <strong style="color: var(--neon-green); text-transform: uppercase; font-size: 0.7rem;">Response:</strong>
+                                 <p style="margin-top: 0.5rem; color: #ccc; white-space: pre-wrap;">@entry.ResponseText</p>
+                             </div>
+                         </div>
+                     }
+                 </div>
+             }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<string> ExpandedEntries { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        TrafficService.OnTrafficReceived += HandleTrafficUpdate;
+    }
+
+    private void HandleTrafficUpdate()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleExpand(string id)
+    {
+        if (ExpandedEntries.Contains(id)) ExpandedEntries.Remove(id);
+        else ExpandedEntries.Add(id);
+    }
+
+    private string GetThreatBadgeClass(string? level) => level switch
+    {
+        "FOE" => "badge-foe",
+        "FRIEND" => "badge-friend",
+        _ => "badge-neutral"
+    };
+
+    public void Dispose()
+    {
+        TrafficService.OnTrafficReceived -= HandleTrafficUpdate;
+    }
+}

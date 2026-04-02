@@ -1,0 +1,97 @@
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --neon-purple: #9d50bb;
+    --neon-blue: #6e7aff;
+    --neon-green: #00f2fe;
+    --text-primary: #e0e0e0;
+}
+
+body {
+    background-color: #0d0d12;
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+.dashboard-container {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    transition: transform 0.2s ease;
+}
+
+.glass-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-top: 0.5rem;
+    background: linear-gradient(45deg, var(--neon-blue), var(--neon-green));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.traffic-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.traffic-item {
+    display: grid;
+    grid-template-columns: 80px 150px 1fr 120px 150px;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.badge-foe { background: rgba(255, 71, 87, 0.2); color: #ff4757; border: 1px solid #ff4757; }
+.badge-friend { background: rgba(46, 213, 115, 0.2); color: #2ed573; border: 1px solid #2ed573; }
+.badge-neutral { background: rgba(112, 161, 255, 0.2); color: #70a1ff; border: 1px solid #70a1ff; }
+
+.payload-view {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 1rem;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 1rem;
+}
